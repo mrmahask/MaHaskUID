@@ -1,0 +1,12 @@
+{
+  "name": "fb-uid-checker-api",
+  "version": "3.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vercel dev"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.2",
+    "cheerio": "^1.0.0-rc.12"
+  }
+}
