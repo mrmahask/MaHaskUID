@@ -1,8 +1,9 @@
 {
   "version": 2,
-  "functions": {
-    "api/v3/checkuid.js": {
-      "maxDuration": 10
-    }
-  }
+  "builds": [
+    { "src": "api/v3/checkuid.js", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/api/v3/checkuid", "dest": "/api/v3/checkuid.js" }
+  ]
 }
