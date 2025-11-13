@@ -2,12 +2,15 @@
 const fetch = require('node-fetch');
 const cheerio = require('cheerio');
 
-const USER_AGENTS = [
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-];
+const USER_AGENT = 'List of 2 items;
 
+// Cache
 const cache = new Map();
+
+// Timeout helper
+const timeoutPromise = (ms) => new Promise((_, reject) => 
+  setTimeout(() => reject(new Error('Timeout')), ms)
+);
 
 module.exports = async (req, res) => {
   const { id } = req.query;
@@ -34,44 +37,41 @@ module.exports = async (req, res) => {
 };
 
 async function checkUID(uid) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000);
-
   try {
-    const pictureRes = await fetch(`https://graph.facebook.com/${uid}/picture?type=normal`, {
-      redirect: 'follow',
-      headers: { 'User-Agent': USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)] },
-      signal: controller.signal
-    });
+    // Kiểm tra picture redirect với timeout
+    const pictureRes = await Promise.race([
+      fetch(`https://graph.facebook.com/${uid}/picture?type=normal`, {
+        redirect: 'follow',
+        headers: { 'User-Agent': USER_AGENT }
+      }),
+      timeoutPromise(7000)
+    ]);
 
-    clearTimeout(timeout);
     const finalUrl = pictureRes.url;
 
-    if (finalUrl.includes('static.xx.fbcdn.net') || finalUrl.includes('profile_akamai')) {
+    if (finalUrl.includes('static.xx.fbcdn.net') || 
+        finalUrl.includes('profile_akamai') || 
+        finalUrl.includes('default')) {
       return { uid, status: 'DIE', url: `https://www.facebook.com/${uid}`, error: 'Không tồn tại' };
     }
 
+    // Nếu LIVE → lấy tên
     const name = await getName(uid);
     return { uid, status: 'LIVE', name, url: `https://www.facebook.com/${uid}`, error: null };
+
   } catch (err) {
-    clearTimeout(timeout);
-    if (err.name === 'AbortError') {
-      return { uid, status: 'DIE', url: `https://www.facebook.com/${uid}`, error: 'Timeout' };
-    }
-    return { uid, status: 'DIE', url: `https://www.facebook.com/${uid}`, error: 'Lỗi kết nối' };
+    return { uid, status: 'DIE', url: `https://www.facebook.com/${uid}`, error: 'Timeout hoặc lỗi kết nối' };
   }
 }
 
 async function getName(uid) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000);
-
   try {
-    const res = await fetch(`https://www.facebook.com/${uid}`, {
-      headers: { 'User-Agent': USER_AGENTS[0] },
-      signal: controller.signal
-    });
-    clearTimeout(timeout);
+    const res = await Promise.race([
+      fetch(`https://www.facebook.com/${uid}`, {
+        headers: { 'User-Agent': USER_AGENT }
+      }),
+      timeoutPromise(7000)
+    ]);
 
     const html = await res.text();
     const $ = cheerio.load(html);
@@ -89,8 +89,7 @@ async function getName(uid) {
     }
 
     return 'Không lấy được tên';
-  } catch (err) {
-    clearTimeout(timeout);
+  } catch {
     return 'Không lấy được tên';
   }
 }
